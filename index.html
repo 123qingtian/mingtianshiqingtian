@@ -3,27 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>明天是晴天</title>
+    <title>SQM周报处理</title>
+    <!-- 引入支持样式的 Excel 处理库 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <style>
         body {
             background: linear-gradient(135deg, #6dd5ed, #2193b0);
             color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+        .container {
+            width: 100%;
+            max-width: 900px;
             text-align: center;
         }
         h1 {
-            font-size: 4rem;
+            font-size: 3rem;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            margin-bottom: 2rem;
+        }
+        .upload-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
             margin-bottom: 2rem;
         }
         .upload-container {
             background: rgba(255, 255, 255, 0.2);
-            padding: 2rem;
+            padding: 1.5rem;
             border-radius: 15px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.3);
@@ -38,45 +51,542 @@
             font-weight: bold;
             transition: all 0.3s ease;
             display: inline-block;
+            margin-bottom: 0.5rem;
         }
         .file-input-label:hover {
             background-color: #f0f0f0;
             transform: translateY(-2px);
         }
-        #file-input {
+        input[type="file"] {
             display: none;
         }
-        #file-name {
-            margin-top: 1rem;
-            font-size: 1rem;
+        .file-info {
+            font-size: 0.9rem;
+            opacity: 0.8;
             word-break: break-all;
+        }
+        .btn-process {
+            background-color: #ff9f43;
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            margin: 0 10px 2rem 10px;
+        }
+        .btn-download {
+            background-color: #28c76f;
+            display: none; /* 初始隐藏 */
+        }
+        .btn-process:hover, .btn-download:hover {
+            transform: scale(1.05);
+            opacity: 0.9;
+        }
+        .btn-process:disabled, .btn-download:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #results-area {
+            display: none;
+            background: white;
+            color: #000;
+            padding: 2rem;
+            border-radius: 5px;
+            text-align: left;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            width: 100%;
+            font-family: 'SimSun', 'Arial', sans-serif;
+        }
+        .excel-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+            border: 2px solid #000;
+        }
+        .excel-table th, .excel-table td {
+            border: 1px solid #000;
+            padding: 4px 8px;
+            height: 25px;
+            vertical-align: middle;
+        }
+        .bg-blue {
+            background-color: #ddebf7 !important;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-bold {
+            font-weight: bold;
+        }
+        .section-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #003366;
+            margin-bottom: 1rem;
+        }
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
-    <div>
-        <h1>明天是晴天</h1>
-        <div class="upload-container">
-            <label for="file-input" class="file-input-label">
-                导入本地文件
-            </label>
-            <input type="file" id="file-input">
-            <div id="file-name">未选择任何文件</div>
+    <div class="container">
+        <h1>SQM周报处理</h1>
+        
+        <div class="upload-section">
+            <div class="upload-container">
+                <label for="main-file" class="file-input-label">导入主数据 (需包含 Sheet1/Sheet2)</label>
+                <input type="file" id="main-file" accept=".xlsx, .xls">
+                <div id="main-file-name" class="file-info">未选择主数据文件</div>
+            </div>
+            <div class="upload-container">
+                <label for="class-file" class="file-input-label">导入 Class 数据 (独立文件)</label>
+                <input type="file" id="class-file" accept=".xlsx, .xls">
+                <div id="class-file-name" class="file-info">未选择 Class 文件</div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 2rem;">
+            <button id="process-btn" class="btn-process">开始分析 SQM 数据</button>
+            <button id="download-btn" class="btn-process btn-download">下载处理后文件</button>
+        </div>
+
+        <div id="results-area">
+            <h2 style="text-align: center; color: #2193b0;">分析报告</h2>
+            <div id="summary-table"></div>
+            <div id="result-dist-table"></div>
+            <div id="eng-table"></div>
         </div>
     </div>
 
-    <script>
-        const fileInput = document.getElementById('file-input');
-        const fileNameDisplay = document.getElementById('file-name');
+    <div id="loading" class="loading-overlay">
+        <div style="background: white; padding: 2rem; border-radius: 10px; color: #333;">正在处理中，请稍候...</div>
+    </div>
 
-        fileInput.addEventListener('change', (event) => {
-            const files = event.target.files;
-            if (files.length > 0) {
-                fileNameDisplay.textContent = `已选择: ${files[0].name}`;
-            } else {
-                fileNameDisplay.textContent = '未选择任何文件';
+    <script>
+        let mainData = { sheet1: [], sheet2: [] };
+        let classData = [];
+        let processedResults = null; // 存储处理结果供下载
+
+        // 文件选择监听
+        document.getElementById('main-file').addEventListener('change', (e) => handleFile(e, 'main'));
+        document.getElementById('class-file').addEventListener('change', (e) => handleFile(e, 'class'));
+        document.getElementById('process-btn').addEventListener('click', processData);
+        document.getElementById('download-btn').addEventListener('click', downloadExcel);
+
+        async function handleFile(e, type) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    if (type === 'main') {
+                        // 校验格式：必须包含 Sheet1 和 Sheet2
+                        if (!workbook.SheetNames.includes('Sheet1') || !workbook.SheetNames.includes('Sheet2')) {
+                            alert('未按格式上传，需重新上传（主文件必须包含 Sheet1 和 Sheet2 工作表）');
+                            e.target.value = ''; // 清空选择
+                            document.getElementById('main-file-name').textContent = '未选择主数据文件';
+                            return;
+                        }
+
+                        const s1 = workbook.Sheets['Sheet1'];
+                        const s2 = workbook.Sheets['Sheet2'];
+                        
+                        // 校验列名
+                        const s1Data = XLSX.utils.sheet_to_json(s1);
+                        const s2Data = XLSX.utils.sheet_to_json(s2);
+                        
+                        if (s1Data.length > 0 && (!s1Data[0].hasOwnProperty('LotNum') || !s1Data[0].hasOwnProperty('ContractID'))) {
+                            alert('未按格式上传，需重新上传（Sheet1 缺少 LotNum 或 ContractID 列）');
+                            e.target.value = '';
+                            return;
+                        }
+
+                        mainData.sheet1 = s1Data;
+                        mainData.sheet2 = s2Data;
+                    } else {
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        classData = XLSX.utils.sheet_to_json(firstSheet);
+                    }
+                    
+                    document.getElementById(`${type}-file-name`).textContent = `已选择: ${file.name}`;
+                    // 重置下载按钮
+                    document.getElementById('download-btn').style.display = 'none';
+                } catch (err) {
+                    alert('文件读取失败，请检查文件是否损坏');
+                    console.error(err);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processData() {
+            if (mainData.sheet1.length === 0 && mainData.sheet2.length === 0) {
+                alert('请先上传符合格式的主数据文件！');
+                return;
             }
-        });
+
+            document.getElementById('loading').style.display = 'flex';
+            
+            setTimeout(() => {
+                try {
+                    processedResults = runSqmLogic();
+                    displayResults(processedResults);
+                    // 显示下载按钮
+                    document.getElementById('download-btn').style.display = 'inline-block';
+                } catch (err) {
+                    console.error(err);
+                    alert('处理出错: ' + err.message);
+                } finally {
+                    document.getElementById('loading').style.display = 'none';
+                }
+            }, 500);
+        }
+
+        function downloadExcel() {
+            if (!processedResults) return;
+
+            const wb = XLSX.utils.book_new();
+            
+            // 定义 Excel 样式
+            const styleHeader = {
+                fill: { fgColor: { rgb: "DDEBF7" } },
+                font: { bold: true, name: "宋体" },
+                alignment: { horizontal: "center", vertical: "center" },
+                border: {
+                    top: { style: "thin" }, bottom: { style: "thin" },
+                    left: { style: "thin" }, right: { style: "thin" }
+                }
+            };
+            
+            const styleNormal = {
+                font: { name: "宋体" },
+                alignment: { horizontal: "center", vertical: "center" },
+                border: {
+                    top: { style: "thin" }, bottom: { style: "thin" },
+                    left: { style: "thin" }, right: { style: "thin" }
+                }
+            };
+
+            const styleBold = {
+                font: { bold: true, name: "宋体" },
+                alignment: { horizontal: "center", vertical: "center" },
+                border: {
+                    top: { style: "thin" }, bottom: { style: "thin" },
+                    left: { style: "thin" }, right: { style: "thin" }
+                }
+            };
+
+            // 辅助函数：创建带样式的单元格
+            const sCell = (val, style) => ({ v: val, s: style });
+
+            // 1. 统计结果页
+            const data = [];
+            data.push([sCell("统计结果", { font: { bold: true, size: 14 } })]);
+            data.push([""]);
+
+            const addGroup = (title, total, s1, s2) => {
+                data.push([sCell(title, styleHeader), sCell(total, styleHeader)]);
+                data.push([sCell(title.replace("批数", "") + "Sheet1批数", styleNormal), sCell(s1, styleNormal)]);
+                data.push([sCell(title.replace("批数", "") + "Sheet2批数", styleNormal), sCell(s2, styleNormal)]);
+                data.push([""]);
+            };
+
+            addGroup("总来料批数", processedResults.stats.lotNum.total, processedResults.stats.lotNum.s1, processedResults.stats.lotNum.s2);
+            addGroup("检验批数", processedResults.stats.iqcDate.total, processedResults.stats.iqcDate.s1, processedResults.stats.iqcDate.s2);
+            addGroup("超三天未完成批数", processedResults.stats.iqcOver3.total, processedResults.stats.iqcOver3.s1, processedResults.stats.iqcOver3.s2);
+            addGroup("有问题批数", processedResults.stats.problem.total, processedResults.stats.problem.s1, processedResults.stats.problem.s2);
+            addGroup("检验后超4天未完成批数", processedResults.stats.sqeOver4.total, processedResults.stats.sqeOver4.s1, processedResults.stats.sqeOver4.s2);
+
+            data.push([sCell("Result统计", styleHeader), sCell("", styleHeader), sCell("", styleHeader)]);
+            data.push([sCell("项目", styleBold), sCell("数量", styleBold), sCell("占比", styleBold)]);
+            
+            Object.keys(processedResults.resultStats.counts).sort((a,b) => processedResults.resultStats.counts[b] - processedResults.resultStats.counts[a]).forEach(key => {
+                const count = processedResults.resultStats.counts[key];
+                const percent = ((count / processedResults.resultStats.total) * 100).toFixed(2) + '%';
+                data.push([sCell(key, styleNormal), sCell(count, styleNormal), sCell(percent, styleNormal)]);
+            });
+            data.push([sCell("总计", styleBold), sCell(processedResults.resultStats.total, styleBold), sCell("100%", styleBold)]);
+            data.push([""]);
+
+            data.push([sCell("ENG统计", styleHeader), sCell("", styleHeader)]);
+            data.push([sCell("ENG有问题批次", styleNormal), sCell(processedResults.engStats.issues, styleNormal)]);
+            data.push([sCell("ENG检验后超4天未完成批数", styleNormal), sCell(processedResults.engStats.over4, styleNormal)]);
+            data.push([""]);
+
+            data.push([sCell("Result统计 (ContractID前两个字母为PT)", styleHeader), sCell("", styleHeader)]);
+            const engResKeys = Object.keys(processedResults.engStats.resCounts);
+            engResKeys.forEach(key => {
+                data.push([sCell(key, styleNormal), sCell(processedResults.engStats.resCounts[key], styleNormal)]);
+            });
+            data.push([sCell("总计", styleBold), sCell(engResKeys.length, styleBold)]);
+            data.push([""]);
+
+            // 补充 ClassCode 统计
+            data.push([sCell("ClassCode统计 (Sheet1)", styleHeader), sCell("", styleHeader)]);
+            const classKeys = Object.keys(processedResults.classCodeStats.counts);
+            classKeys.forEach(key => {
+                data.push([sCell(key, styleNormal), sCell(processedResults.classCodeStats.counts[key], styleNormal)]);
+            });
+            data.push([sCell("总计", styleBold), sCell(processedResults.classCodeStats.total, styleBold)]);
+
+            const wsSummary = XLSX.utils.aoa_to_sheet(data);
+            
+            // 设置列宽
+            wsSummary['!cols'] = [{ wch: 35 }, { wch: 15 }, { wch: 15 }];
+
+            XLSX.utils.book_append_sheet(wb, wsSummary, "统计结果");
+
+            // 2. 明细页 (保持原样，无需过度美化)
+            const wsS1 = XLSX.utils.json_to_sheet(processedResults.details.s1);
+            const wsS2 = XLSX.utils.json_to_sheet(processedResults.details.s2);
+            XLSX.utils.book_append_sheet(wb, wsS1, "Sheet1_处理后");
+            XLSX.utils.book_append_sheet(wb, wsS2, "Sheet2_处理后");
+
+            XLSX.writeFile(wb, `SQM分析报告_${new Date().toLocaleDateString()}.xlsx`);
+        }
+
+        function runSqmLogic() {
+            // 1. 处理 LotNum 去重
+            const processedS1 = processLotNum(mainData.sheet1);
+            const processedS2 = processLotNum(mainData.sheet2);
+
+            // 2. 统计数据
+            const stats = {
+                lotNum: {
+                    total: processedS1.count + processedS2.count,
+                    s1: processedS1.count,
+                    s2: processedS2.count
+                },
+                iqcDate: {
+                    total: countNonEmpty(processedS1.data, 'IQCDate') + countNonEmpty(processedS2.data, 'IQCDate'),
+                    s1: countNonEmpty(processedS1.data, 'IQCDate'),
+                    s2: countNonEmpty(processedS2.data, 'IQCDate')
+                },
+                iqcOver3: {
+                    total: countAbove(processedS1.data, 'IQC', 3) + countAbove(processedS2.data, 'IQC', 3),
+                    s1: countAbove(processedS1.data, 'IQC', 3),
+                    s2: countAbove(processedS2.data, 'IQC', 3)
+                },
+                problem: {
+                    total: countAbove(processedS1.data, 'SQE', 0) + countAbove(processedS2.data, 'SQE', 0),
+                    s1: countAbove(processedS1.data, 'SQE', 0),
+                    s2: countAbove(processedS2.data, 'SQE', 0)
+                },
+                sqeOver4: {
+                    total: countAbove(processedS1.data, 'SQE', 4) + countAbove(processedS2.data, 'SQE', 4),
+                    s1: countAbove(processedS1.data, 'SQE', 4),
+                    s2: countAbove(processedS2.data, 'SQE', 4)
+                }
+            };
+
+            // 3. Result 统计 (Sheet1)
+            const resultStats = getResultStats(processedS1.data);
+            
+            // 4. ENG 统计 (Sheet1)
+            const engStats = getEngStats(processedS1.data);
+
+            // 5. ClassCode 统计 (Sheet1)
+            const classCodeStats = getClassCodeStats(processedS1.data);
+
+            return { 
+                stats, 
+                resultStats, 
+                engStats, 
+                classCodeStats,
+                details: { s1: processedS1.data, s2: processedS2.data } 
+            };
+        }
+
+        // --- 工具函数 ---
+        function getClassCodeStats(data) {
+            const counts = {};
+            let total = 0;
+            data.forEach(row => {
+                const val = String(row.ClassCode || '').trim();
+                if (val) {
+                    counts[val] = (counts[val] || 0) + 1;
+                    total++;
+                }
+            });
+            return { counts, total };
+        }
+
+        function processLotNum(data) {
+            if (!data || data.length === 0) return { count: 0, data: [] };
+            
+            const dict = new Map();
+            const filteredData = [];
+
+            data.forEach(row => {
+                let lotNum = String(row.LotNum || '').trim();
+                let contractId = String(row.ContractID || '').trim();
+                
+                if (!lotNum || !contractId) return;
+
+                // 处理 @ 逻辑
+                let processedLot;
+                const atPos = lotNum.indexOf('@');
+                if (atPos > -1 && lotNum.length >= atPos + 4) {
+                    processedLot = lotNum.substring(0, atPos + 1) + lotNum.substring(atPos + 4);
+                } else {
+                    processedLot = lotNum;
+                }
+
+                const key = `${contractId.startsWith('PT') ? 'PT' : 'OTHER'}_${processedLot}`;
+                if (!dict.has(key)) {
+                    dict.set(key, true);
+                    filteredData.push(row);
+                }
+            });
+
+            return { count: dict.size, data: filteredData };
+        }
+
+        function countNonEmpty(data, col) {
+            return data.filter(row => row[col] !== undefined && row[col] !== '').length;
+        }
+
+        function countAbove(data, col, threshold) {
+            return data.filter(row => {
+                const val = parseFloat(row[col]);
+                return !isNaN(val) && val > threshold;
+            }).length;
+        }
+
+        function getResultStats(data) {
+            const counts = {};
+            let total = 0;
+            data.forEach(row => {
+                const val = String(row.Result || '').trim();
+                if (val) {
+                    counts[val] = (counts[val] || 0) + 1;
+                    total++;
+                }
+            });
+            return { counts, total };
+        }
+
+        function getEngStats(data) {
+            let issues = 0;
+            let over4 = 0;
+            const resCounts = {};
+
+            data.forEach(row => {
+                const contractId = String(row.ContractID || '').trim();
+                if (contractId.startsWith('PT')) {
+                    const sqe = parseFloat(row.SQE);
+                    if (!isNaN(sqe) && sqe >= 0) issues++;
+                    if (!isNaN(sqe) && sqe > 4) over4++;
+
+                    const res = String(row.Result || '').trim();
+                    if (res) resCounts[res] = (resCounts[res] || 0) + 1;
+                }
+            });
+            return { issues, over4, resCounts };
+        }
+
+        function displayResults(results) {
+            const { stats, resultStats, engStats } = results;
+            const area = document.getElementById('results-area');
+            area.style.display = 'block';
+
+            // 1. 概览表格 (按照图片分组)
+            let summaryHtml = `
+                <div class="section-header">统计结果</div>
+                <table class="excel-table">
+                    <tr class="bg-blue text-center text-bold"><td style="width: 70%">总来料批数</td><td>${stats.lotNum.total}</td></tr>
+                    <tr class="text-center"><td>Sheet1批数</td><td>${stats.lotNum.s1}</td></tr>
+                    <tr class="text-center"><td>Sheet2批数</td><td>${stats.lotNum.s2}</td></tr>
+                    
+                    <tr><td colspan="2" style="border:none; height: 10px;"></td></tr>
+
+                    <tr class="bg-blue text-center text-bold"><td>检验批数</td><td>${stats.iqcDate.total}</td></tr>
+                    <tr class="text-center"><td>Sheet1检验批数</td><td>${stats.iqcDate.s1}</td></tr>
+                    <tr class="text-center"><td>Sheet2检验批数</td><td>${stats.iqcDate.s2}</td></tr>
+
+                    <tr><td colspan="2" style="border:none; height: 10px;"></td></tr>
+
+                    <tr class="bg-blue text-center text-bold"><td>超三天未完成批数</td><td>${stats.iqcOver3.total}</td></tr>
+                    <tr class="text-center"><td>Sheet1超期批数</td><td>${stats.iqcOver3.s1}</td></tr>
+                    <tr class="text-center"><td>Sheet2超期批数</td><td>${stats.iqcOver3.s2}</td></tr>
+
+                    <tr><td colspan="2" style="border:none; height: 10px;"></td></tr>
+
+                    <tr class="bg-blue text-center text-bold"><td>有问题批数</td><td>${stats.problem.total}</td></tr>
+                    <tr class="text-center"><td>Sheet1问题批数</td><td>${stats.problem.s1}</td></tr>
+                    <tr class="text-center"><td>Sheet2问题批数</td><td>${stats.problem.s2}</td></tr>
+
+                    <tr><td colspan="2" style="border:none; height: 10px;"></td></tr>
+
+                    <tr class="bg-blue text-center text-bold"><td>检验后超4天未完成批数</td><td>${stats.sqeOver4.total}</td></tr>
+                    <tr class="text-center"><td>Sheet1超4天天批数</td><td>${stats.sqeOver4.s1}</td></tr>
+                    <tr class="text-center"><td>Sheet2超4天批数</td><td>${stats.sqeOver4.s2}</td></tr>
+                </table>
+            `;
+            document.getElementById('summary-table').innerHTML = summaryHtml;
+
+            // 2. Result 统计
+            let resultHtml = `
+                <table class="excel-table">
+                    <tr class="bg-blue text-bold"><td>Result统计</td><td colspan="2"></td></tr>
+                    <tr class="text-bold"><td style="width: 50%">项目</td><td>数量</td><td>占比</td></tr>
+            `;
+            Object.keys(resultStats.counts).sort((a,b) => resultStats.counts[b] - resultStats.counts[a]).forEach(key => {
+                const count = resultStats.counts[key];
+                const percent = ((count / resultStats.total) * 100).toFixed(2) + '%';
+                resultHtml += `<tr><td>${key}</td><td>${count}</td><td>${percent}</td></tr>`;
+            });
+            resultHtml += `<tr class="text-bold"><td>总计</td><td>${resultStats.total}</td><td>100%</td></tr></table>`;
+            document.getElementById('result-dist-table').innerHTML = resultHtml;
+
+            // 3. ENG 统计 & PT Result 统计
+            let engHtml = `
+                <table class="excel-table">
+                    <tr class="bg-blue text-bold"><td>ENG统计</td><td></td></tr>
+                    <tr><td style="width: 70%">ENG有问题批次</td><td>${engStats.issues}</td></tr>
+                    <tr><td>ENG检验后超4天未完成批数</td><td>${engStats.over4}</td></tr>
+                </table>
+
+                <table class="excel-table">
+                    <tr class="bg-blue text-bold"><td>Result统计 (ContractID前两个字母为PT)</td><td></td></tr>
+            `;
+            const engKeys = Object.keys(engStats.resCounts);
+            engKeys.forEach(key => {
+                engHtml += `<tr><td style="width: 70%">${key}</td><td>${engStats.resCounts[key]}</td></tr>`;
+            });
+            engHtml += `<tr class="text-bold"><td>总计</td><td>${engKeys.length}</td></tr></table>`;
+            
+            // 4. ClassCode 统计
+            engHtml += `
+                <table class="excel-table">
+                    <tr class="bg-blue text-bold"><td>ClassCode统计 (Sheet1)</td><td></td></tr>
+            `;
+            const classKeys = Object.keys(results.classCodeStats.counts);
+            classKeys.forEach(key => {
+                engHtml += `<tr><td style="width: 70%">${key}</td><td>${results.classCodeStats.counts[key]}</td></tr>`;
+            });
+            engHtml += `<tr class="text-bold"><td>总计</td><td>${results.classCodeStats.total}</td></tr></table>`;
+            
+            document.getElementById('eng-table').innerHTML = engHtml;
+            
+            area.scrollIntoView({ behavior: 'smooth' });
+        }
     </script>
 </body>
 </html>
