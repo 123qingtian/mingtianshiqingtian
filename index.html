@@ -352,13 +352,41 @@
 
             XLSX.utils.book_append_sheet(wb, wsSummary, "统计结果");
 
-            // 2. 明细页 (保持原样，无需过度美化)
-            const wsS1 = XLSX.utils.json_to_sheet(processedResults.details.s1);
-            const wsS2 = XLSX.utils.json_to_sheet(processedResults.details.s2);
+            // 2. 明细页 (修正日期格式)
+            const formatSheetData = (data) => {
+                // 找到所有可能的日期列名
+                const dateCols = ['IQCDate', 'ArrivalDate', 'UpdateDate', 'ReceiptDate', 'InspectedDate']; 
+                
+                return data.map(row => {
+                    const newRow = { ...row };
+                    dateCols.forEach(col => {
+                        if (newRow[col]) {
+                            // 如果是 Excel 序列号格式（数字）
+                            if (typeof newRow[col] === 'number' && newRow[col] > 30000) {
+                                const date = XLSX.SSF.parse_date_code(newRow[col]);
+                                newRow[col] = `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
+                            } 
+                            // 如果是 JS Date 对象
+                            else if (newRow[col] instanceof Date) {
+                                const d = newRow[col];
+                                newRow[col] = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                            }
+                        }
+                    });
+                    return newRow;
+                });
+            };
+
+            const wsS1 = XLSX.utils.json_to_sheet(formatSheetData(processedResults.details.s1));
+            const wsS2 = XLSX.utils.json_to_sheet(formatSheetData(processedResults.details.s2));
             XLSX.utils.book_append_sheet(wb, wsS1, "Sheet1_处理后");
             XLSX.utils.book_append_sheet(wb, wsS2, "Sheet2_处理后");
 
-            XLSX.writeFile(wb, `SQM分析报告_${new Date().toLocaleDateString()}.xlsx`);
+            // 获取 YYYY-MM-DD 格式的日期
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            
+            XLSX.writeFile(wb, `SQM分析报告_${dateStr}.xlsx`);
         }
 
         function runSqmLogic() {
