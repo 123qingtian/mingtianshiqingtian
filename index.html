@@ -338,17 +338,24 @@
             data.push([""]);
 
             // 补充 ClassCode 统计
-            data.push([sCell("ClassCode统计 (Sheet1)", styleHeader), sCell("", styleHeader)]);
+            data.push([sCell("ClassCode统计", styleHeader), sCell("UAR数量", styleHeader), sCell("pass数量", styleHeader), sCell("总数量", styleHeader)]);
+            let totalUAR = 0;
+            let totalPass = 0;
             const classKeys = Object.keys(processedResults.classCodeStats.counts);
             classKeys.forEach(key => {
-                data.push([sCell(key, styleNormal), sCell(processedResults.classCodeStats.counts[key], styleNormal)]);
+                const uarCount = processedResults.classCodeStats.counts[key].UAR;
+                const passCount = processedResults.classCodeStats.counts[key].pass;
+                const totalCount = uarCount + passCount;
+                data.push([sCell(key, styleNormal), sCell(uarCount, styleNormal), sCell(passCount, styleNormal), sCell(totalCount, styleNormal)]);
+                totalUAR += uarCount;
+                totalPass += passCount;
             });
-            data.push([sCell("总计", styleBold), sCell(processedResults.classCodeStats.total, styleBold)]);
+            data.push([sCell("总计", styleBold), sCell(totalUAR, styleBold), sCell(totalPass, styleBold), sCell(totalUAR + totalPass, styleBold)]);
 
             const wsSummary = XLSX.utils.aoa_to_sheet(data);
             
             // 设置列宽
-            wsSummary['!cols'] = [{ wch: 35 }, { wch: 15 }, { wch: 15 }];
+            wsSummary['!cols'] = [{ wch: 35 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
 
             XLSX.utils.book_append_sheet(wb, wsSummary, "统计结果");
 
@@ -448,7 +455,15 @@
             data.forEach(row => {
                 const val = String(row.ClassCode || '').trim();
                 if (val) {
-                    counts[val] = (counts[val] || 0) + 1;
+                    if (!counts[val]) {
+                        counts[val] = { UAR: 0, pass: 0 };
+                    }
+                    const result = String(row.Result || '').trim();
+                    if (result === 'UAR') {
+                        counts[val].UAR++;
+                    } else if (result && result !== 'nan') {
+                        counts[val].pass++;
+                    }
                     total++;
                 }
             });
@@ -603,13 +618,20 @@
             // 4. ClassCode 统计
             engHtml += `
                 <table class="excel-table">
-                    <tr class="bg-blue text-bold"><td>ClassCode统计 (Sheet1)</td><td></td></tr>
+                    <tr class="bg-blue text-bold"><td>ClassCode统计</td><td>UAR数量</td><td>pass数量</td><td>总数量</td></tr>
             `;
             const classKeys = Object.keys(results.classCodeStats.counts);
+            let totalUAR = 0;
+            let totalPass = 0;
             classKeys.forEach(key => {
-                engHtml += `<tr><td style="width: 70%">${key}</td><td>${results.classCodeStats.counts[key]}</td></tr>`;
+                const uarCount = results.classCodeStats.counts[key].UAR;
+                const passCount = results.classCodeStats.counts[key].pass;
+                const totalCount = uarCount + passCount;
+                engHtml += `<tr><td style="width: 70%">${key}</td><td>${uarCount}</td><td>${passCount}</td><td>${totalCount}</td></tr>`;
+                totalUAR += uarCount;
+                totalPass += passCount;
             });
-            engHtml += `<tr class="text-bold"><td>总计</td><td>${results.classCodeStats.total}</td></tr></table>`;
+            engHtml += `<tr class="text-bold"><td>总计</td><td>${totalUAR}</td><td>${totalPass}</td><td>${totalUAR + totalPass}</td></tr></table>`;
             
             document.getElementById('eng-table').innerHTML = engHtml;
             
